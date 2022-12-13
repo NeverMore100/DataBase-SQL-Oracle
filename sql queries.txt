@@ -1,0 +1,220 @@
+1) Select name_product,name_company,price,quantity
+from market,company, product
+where market.id_product=company.id_product and company.id_company=product.id_companies and market.id_product = product.id_product
+ // вывод маркет продуктов
+
+2) Select SUM(PRICE) as SUM_of_prod
+FROM market
+WHERE market.quantity < 50 
+union
+SELECT count(quantity) AS avg_of_quan
+FROM market x, company z
+WHERE x.id_product = z.id_product and z.name_product like 'A%'
+//вывод на какую сумму в маркете товаров и количество продуктовв начинающиеся на A
+
+3)
+Delete from market
+Where id_product in (Select * from prosrochka)
+////////////
+ Insert into existed_product
+select id_product
+from company
+where company.id_product in(select* from prosrochka_id)
+
+Create view prosrochka_id AS
+select id_product 
+from market
+where date_end-date_start>5
+// вывод просроченных продуктов и добавление их в existed product и удаление с маркета;
+
+4) insert into perevod
+values(1,2,50,'11/12/2022');
+/////////////////////////////
+create or replace TRIGGER perevod_trigger
+AFTER INSERT
+ON perevod
+FOR EACH ROW
+
+declare
+pragma autonomous_transaction;
+
+BEGIN
+
+
+update clients
+ set balance  = (case when  id_client =:new.ID_PEREVEL then balance-:new.SUMMA_PEREVODA
+                      when  id_client=:new.ID_POLUCHIL then balance+:new.SUMMA_PEREVODA
+                      end)
+ WHERE id_client in (:new.ID_PEREVEL,:new.ID_POLUCHIL);
+commit;
+END;
+//////////Триггер на перевод.
+5)Drop view prosrochka_id
+//Дропнуть 4 пункт 
+6) //выбор клиентом продукта. он отправляет на сервер количество выбранного продукта и его айди. а мы делаем инсерт в баскет.
+insert all
+into basket("nameProduct,k,price*k"); прайс и имя берем с маркета с помощью айди
+7) Select id_client, sum(price)
+from basket
+group by id_client
+//вывод тотал прайса в баскете каждого клиента
+8)Когда пользователь нажимает кнопку оплатить создается payment.И как только прошла оплата
+создается ЧЕК И баскет делаю пустым для этого клиента.
+При добавлении в чек дата дефаулт сегодняшняя.
+create or replace TRIGGER ClearBasket
+AFTER INSERT
+ON CHECK_OF_CLIENTS
+FOR EACH ROW
+declare
+pragma autonomous_transaction;
+
+BEGIN
+DELETE FROM BASKET
+ WHERE basket.id_client = :new.id_client;
+
+commit;
+END;
+//чистка баскета.
+insert into CHECK_OF_CLIENTS
+values (2,'NameProduct',6*268,current_date,2);
+//proverka
+/////////////////////
+🎴 
+Select DISTINCT x.name_company, y.name_product, z.date_start
+from product x, company y, market z
+
+🎴
+Select date_start, SUM(price)
+from market
+group by date_start
+order by date_start
+
+🎴
+Select first_name
+from clients
+where id_client in (
+    Select id_client
+    from market
+    where price < 400
+    Intersect
+    Select id_client
+    from clients
+    where balance > 400
+)
+// покупатели которые могут купить продукт ценой меньше 400
+
+🎴
+Select id_client, sum(price)
+from basket
+group by id_client
+
+// вывод суммы общей покупки клиента
+
+🎴
+select id_client, price
+from market
+where price > 300 and price < 570
+MINUS
+select id_client, balance
+from clients
+where id_client > 40
+
+9) 
+insert into dolzhniki
+select client_check_sum.id_client,client_check_sum.total_cl-clients.balance
+from clients,client_check_sum
+where clients.id_client=client_check_sum.id_client AND client_check_sum.total_cl>clients.balance
+
+create view client_check_sum AS
+Select id_client, sum(price) as total_cl
+from basket
+group by id_client
+//вывод у кого не хватает денег и сразу добавить в таблицу должников.
+10)
+insert into dohod
+values('2022',(select sum(price)
+from CHECK_OF_CLIENTS
+where date_of_check like '%2022' )+(select sum(ZADOLZHNOST)
+from DOLZHNIKI)-(select sum(QUANTITY*DATE_START)
+from market
+where id_product in(select * from EXISTED_PRODUCT)
+))
+//подсчет дохода сумма чеков и должников минус потерянные продукты
+11) select *
+from totals_perevods
+where tt>200
+
+create view totals_perevods as
+select id_perevel,sum(SUMMA_PEREVODA) as tt
+from perevod
+group by id_perevel
+//вывод тех кто перевел больше 200 денег
+
+12) insert into CHECK_OF_CLIENTS
+values (1,'Zaam-Dox',234,current_date,1)
+//////////////////////////////////
+create or replace trigger update_quantity_market
+AFTER
+DELETE on basket
+for each row
+declare
+pragma autonomous_transaction;
+begin
+UPDATE market
+   SET quantity = quantity-:old.quantity
+ WHERE :old.id_product = market.id_product;
+
+commit;
+end;
+//изменение продуктов в маркете
+13)
+
+select market.id_product ,name_product,quantity
+from market,company
+where quantity<200 and market.id_product=company.id_product
+//вывод продуктов которые кончаются и отсюда эти айди взять и закинуть в таблицу для запроса продуктов у компании и можно добавить триггер чтобы автоматически добавлялся продукт в маркете.
+insert into zapros_na_p
+select market.id_product ,quantity+100
+from market,company
+where quantity<200 and market.id_product=company.id_product
+////////
+ 
+14)
+insert into sales
+values(5,50)
+
+create or replace TRIGGER to_sales
+AFTER INSERT
+ON sales
+FOR EACH ROW
+declare
+pragma autonomous_transaction;
+
+BEGIN
+
+UPDATE market
+   SET price = price*(:new.procent/100)
+ WHERE market.id_product = :new.id_product;
+commit;
+END;
+///сделать скидку на товар тригер
+15) delete from sales
+where sales.id_product=5
+
+create or replace trigger back_to_old_price
+AFTER DELETE on sales
+for each row
+declare
+pragma autonomous_transaction;
+begin
+UPDATE market
+   SET price = (price*100)/(100-:old.procent)
+ WHERE market.id_product = :old.id_product;
+commit;
+end;
+//убрать скидку на товар
+
+
+
+
+
